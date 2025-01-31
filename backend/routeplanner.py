@@ -1,9 +1,15 @@
 import googlemaps
 from geopy.distance import geodesic
 import folium
-
+from dotenv import load_dotenv
+import os
 # Initialize the Google Maps client
-gmaps = googlemaps.Client(key="AIzaSyBmM4WPHKrWrtApji5bANpeishBx7Re68k")
+
+# Now you can access the environment variable just like before
+google_map_api = os.environ.get('GOOGLE_MAPS_API')
+
+# Initialize Google Maps client
+gmaps = googlemaps.Client(key=google_map_api)
 
 def get_route(start_point, end_point, mode="walking"):
     """Get a route from start_point to end_point using the Directions API."""

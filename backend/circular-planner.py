@@ -1,3 +1,6 @@
+from dotenv import load_dotenv
+import os
+
 from flask import Flask, jsonify, request
 import googlemaps
 from geopy.distance import geodesic
@@ -6,7 +9,11 @@ import math
 app = Flask(__name__)
 
 # Initialize Google Maps client
-gmaps = googlemaps.Client(key='AIzaSyBmM4WPHKrWrtApji5bANpeishBx7Re68k')
+# Now you can access the environment variable just like before
+google_map_api = os.environ.get('GOOGLE_MAPS_API')
+
+# Initialize Google Maps client
+gmaps = googlemaps.Client(key=google_map_api)
 
 # Haversine formula to calculate distance between two lat/lon points
 def haversine(lat1, lon1, lat2, lon2):
