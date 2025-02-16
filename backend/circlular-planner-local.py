@@ -1,3 +1,9 @@
+# TO DO:
+# Use the optimised directions from google map
+# Use the polyline given within the google map directions response. (DONE)
+# Use the snap to closest road to prevent the route from going into unauthorised areas
+
+
 from dotenv import load_dotenv
 import os
 
@@ -13,7 +19,7 @@ load_dotenv()
 
 # Now you can access the environment variable just like before
 google_map_api = os.environ.get('GOOGLE_MAPS_API')
-
+start_lat, start_lng = os.environ.get("start_lat"), os.environ.get("start_lng")
 # Initialize Google Maps client
 gmaps = googlemaps.Client(key=google_map_api)
 
@@ -46,7 +52,7 @@ def calculate_radius(distance=5000):
 
 
 # Function to calculate the center of the circle given a starting point and radius
-def calculate_center(lat_s, lon_s, radius, start_point="down"):
+def calculate_center(lat_s, lon_s, radius, start_point="top"):
     # Calculate the change in latitude (in radians)
     delta_lat = radius / EARTH_RADIUS
     delta_lat_deg = math.degrees(delta_lat)
@@ -56,7 +62,7 @@ def calculate_center(lat_s, lon_s, radius, start_point="down"):
     delta_lon_deg = math.degrees(delta_lon)
 
     # If the starting point is at the top of the circle (North), move down by radius
-    center_lat = lat_s - delta_lat_deg if start_point == "down" else lat_s + delta_lat_deg
+    center_lat = lat_s - delta_lat_deg if start_point == "top" else lat_s + delta_lat_deg
     center_lng = lon_s  # Longitude doesn't change as the circle is centered
 
     return center_lat, center_lng
@@ -72,8 +78,6 @@ def generate_major_waypoints(center_lat, center_lng, radius, num_points):
         new_lng = center_lng + math.degrees(lon_offset)
         waypoints.append({"lat":new_lat, "lng":new_lng})
     return waypoints
-
-
 
 
 # Function to get walking route using Google Maps API
@@ -94,7 +98,7 @@ def get_full_route(waypoints):
         routes.append(route)
     return routes
 
-def plot_route(waypoints, route_name="Default"):
+def plot_route(waypoints, colour = "blue",route_name="Default"):
     """Plot the route on a map using folium."""
     
     start_point = waypoints[0]
@@ -112,9 +116,9 @@ def plot_route(waypoints, route_name="Default"):
         # Optional: Add a Circle Marker for more visibility
         folium.CircleMarker(
             location=[start['lat'], start['lng']],
-            radius=5,
-            color="blue",
-            fill=True,
+            radius=5 if i % 10 == 0 else 1,
+            color=colour,
+            fill=True if i % 10 == 0 else False,
             fill_color="cyan",
             fill_opacity=0.7,
             tooltip= f"{i}, Lat: {start['lat']}, Lng: {start['lng']},"
@@ -122,25 +126,25 @@ def plot_route(waypoints, route_name="Default"):
 
         folium.PolyLine(
             [(start['lat'], start['lng']), (end['lat'], end['lng'])],
-            color="blue",
+            color=colour,
             weight=2.5,
             opacity=1,
         ).add_to(m)
 
 
 
-    m.save("{}.html".format(route_name))
+    m.save(os.path.join(os.getcwd(), "running-mapper", "generated_routes", "{}.html".format(route_name)))
 
 if __name__ == "__main__":
     data = {
-        "start_lat": 1.402162,
-        "start_lng": 103.746971,
-        "distance": 3000, #Maximum distance should be enabled (gao de being 21km)
-        "num_waypoints": 6 # unchanged.
+        "start_lat": float(start_lat),
+        "start_lng": float(start_lng),
+        "distance": 5000, #Maximum distance should be enabled (gao de being 21km)
+        "num_waypoints": 4 # unchanged.
     }
     closed_loop = True
     r = calculate_radius(data['distance'])
-    center_lat, center_lng = calculate_center(data['start_lat'], data['start_lng'], r, start_point="down") 
+    center_lat, center_lng = calculate_center(data['start_lat'], data['start_lng'], r, start_point="top") 
     way_pts = generate_major_waypoints(center_lat, center_lng, r, data["num_waypoints"])
 
     if closed_loop:
@@ -150,16 +154,20 @@ if __name__ == "__main__":
 
     total_dist = 0
     running_route_wp = []
+    running_route_pl = []
     # kp being keypoints, the pivotal waypoints along the circumference
     for kp in running_route:
         # wp being the waypoints given by google maps to move from one kp to another
         for wp in kp:
             running_route_wp.append(wp['start_location'])
+            polyline_pts = googlemaps.convert.decode_polyline(wp['polyline']['points'])[1:]
+            running_route_pl.extend(polyline_pts) 
             if len(running_route_wp) > 1:
                 total_dist += calculate_dist(running_route_wp[-1], running_route_wp[-2])
 
     print("Total Distance = {} \n".format(total_dist))
-    print(running_route_wp)
+    # print(running_route_wp)
     plot_route(way_pts, route_name="Local_Route_Mapper_KP")
-    plot_route(running_route_wp, route_name="Local_Route_Mapper_WP")
+    plot_route(running_route_wp, colour="red", route_name="Local_Route_Mapper_WP")
+    plot_route(running_route_pl, colour="blue", route_name="Local_Route_Mapper_PL")
         
